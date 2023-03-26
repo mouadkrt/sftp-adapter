@@ -1,0 +1,6 @@
+.settings
+.vscode
+configuration/settings.xml
+.classpath
+.project
+target
