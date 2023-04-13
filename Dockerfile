@@ -8,9 +8,10 @@ ENTRYPOINT ["java","-jar","app.jar"]
 # mvn clean install
 
 # Start Docker deamon
-# docker build -t iam-complex-trf:iam_1.10 .
+# docker build -t iam-sftp-adapter:iam_0.2 .
 # Tag it and push to quay
-# docker tag iam-complex-trf:iam_1.10 quay.io/msentissi/iam-complex-trf:iam_1.10
-# docker push quay.io/msentissi/iam-complex-trf:iam_1.10
+# docker tag iam-sftp-adapter:iam_0.2 quay.io/msentissi/iam-sftp-adapter:iam_0.2
+# docker login registry.redhat.io 
+# docker push quay.io/msentissi/iam-sftp-adapter:iam_0.2
 # OR tag it and push to dockerhub
 # docker push msentissi/iam-complex-trf:1.5
