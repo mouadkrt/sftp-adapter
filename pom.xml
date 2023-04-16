@@ -30,9 +30,11 @@
       <dependency>
         <groupId>org.apache.camel</groupId>
         <artifactId>camel-zipfile-starter</artifactId>
-        <version>3.0.0-M4</version>
+        <version>3.0.0-RC3</version>
         <!-- use the same version as your Camel core version -->
-        </dependency>
+    </dependency>
+    
+
         <!-- https://mvnrepository.com/artifact/org.apache.camel/camel-http-starter -->
         <dependency>
             <groupId>org.apache.camel</groupId>

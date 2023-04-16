@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 //@ImportResource({"classpath:spring/camel-context.xml"})
 public class Application extends RouteBuilder {
 
+    private static String ARIBA_SHARED_SECRET  = System.getenv().getOrDefault("ARIBA_SHARED_SECRET", "rabat2121");
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
@@ -35,13 +36,15 @@ public class Application extends RouteBuilder {
         String sFtpHost     = System.getenv().getOrDefault("sFTP_HOST", "localhost");
         String sFtpPort     = System.getenv().getOrDefault("sFTP_PORT", "22");
         String sFtpDir      = System.getenv().getOrDefault("sFTP_DIR", "/upload");
-        String sFtpUser     = System.getenv().getOrDefault("sFTP_USER", "foo");
-        String sFtpPassword = System.getenv().getOrDefault("sFTP_PWD", "pass");
+        String sFtpUser     = System.getenv().getOrDefault("sFTP_USER", "osbsap");
+        String sFtpPassword = "osbsap$23"; //System.getenv().getOrDefault("sFTP_PWD", "osbsap$23");
         String sFtpDeleteFile = System.getenv().getOrDefault("sFTP_DELETE_FILE", "false"); // True or false
         String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/sftp_archive"); // True or false
-        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password="+sFtpPassword+"&disconnect=false&delete="+sFtpDeleteFile;
+        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
+        //String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW(osbsap$23)&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
 
-        String ARIBA_UPLOAD_URL = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "https://10.96.16.101/Buyer/fileupload?partition=par1iam");
+        String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "https://10.96.16.101/Buyer/fileupload?partition=par1iam");
+        
         from(sftpURI) // fake sFTP : docker run -p 22:22 -d atmoz/sftp foo:pass:::upload // &resumeDownload=true&streamDownload=false
             .log("MUIS : ${file:name} downloaded from sftp")
             .marshal()
@@ -97,7 +100,7 @@ public class Application extends RouteBuilder {
             e.printStackTrace();
         }
         
-        entity.addTextBody("sharedsecret", "rabat2121");
+        entity.addTextBody("sharedsecret", ARIBA_SHARED_SECRET);
         entity.addTextBody("event", "Import Batch Data");
         entity.addTextBody("fullload", "true");
       
