@@ -52,15 +52,16 @@ public class Application extends RouteBuilder {
             .log("MUIS : ${file:name} compressed")
             .to("file:/tmp")
             
-            .multicast()
-            .parallelProcessing()
-            .to("direct:muis_archive_file","direct:muis_zip_upload_toAriba")
+            //.multicast()
+            //.parallelProcessing()
+            .to("direct:muis_zip_upload_toAriba")
+            //.to("direct:muis_archive_file")
         .end();
 
-        from("direct:muis_archive_file")
+        /*from("direct:muis_archive_file")
             .log("Archiving file to : " + ArchiveDir)
             .to("file:"+ArchiveDir) // Archive file, will get logged on C:\sftp_archive on Windows
-        .end();
+        .end();*/
 
         from("direct:muis_zip_upload_toAriba")
             .process(Application::toMultipart)
