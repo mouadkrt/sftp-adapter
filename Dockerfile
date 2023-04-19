@@ -1,4 +1,5 @@
 FROM registry.redhat.io/ubi8/openjdk-11:1.14-12
+#FROM registry.redhat.io/rhel7@sha256:646de18f10f6d78b4bdbb2a4139d78e76386c6e86a86333e1cf5a0a428289c4e
 #FROM openjdk:19-jdk-alpine3.16
 #FROM alpine:3.17.3
 #FROM alpine/openssl
@@ -12,8 +13,9 @@ RUN echo "jdk.tls.disabledAlgorithms=RC4, DES, MD5withRSA, DH keySize < 1024, EC
 #RUN cat /tmp/sapqual6_public_key >> ~/.ssh/
 #COPY src /opt/app/src
 #COPY pom.xml  /opt/app/pom.xml
-ENTRYPOINT ["java","-Dhttps.protocols=TLSv1.0,TLSv1.1,TLSv1.2,TLSv1.3", "-jar","app.jar"]
-# ENTRYPOINT ["/bin/sh"]
+#ENTRYPOINT ["java","-Dhttps.protocols=TLSv1.0,TLSv1.1,TLSv1.2,TLSv1.3", "-jar","app.jar"]
+#ENTRYPOINT ["java","-jar","app.jar"]
+ENTRYPOINT ["/bin/sh"]
 # mvn spring-boot:run
 # mvn clean install
 

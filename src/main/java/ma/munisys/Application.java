@@ -52,10 +52,9 @@ public class Application extends RouteBuilder {
             .log("MUIS : ${file:name} compressed")
             .to("file:/tmp") // /tmp in localhost / local container
             
-            //.multicast()
-            //.parallelProcessing()
-            .to("direct:muis_zip_upload_toAriba")
-            .to("direct:muis_archive_file")
+            .multicast()
+            .parallelProcessing()
+            .to("direct:muis_archive_file","direct:muis_zip_upload_toAriba")
         .end();
 
         from("direct:muis_zip_upload_toAriba")
