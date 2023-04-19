@@ -19,7 +19,6 @@ import org.slf4j.LoggerFactory;
 
 //import org.springframework.context.annotation.ImportResource;
 
-
 @SpringBootApplication
 //@ImportResource({"classpath:spring/camel-context.xml"})
 public class Application extends RouteBuilder {
@@ -38,9 +37,10 @@ public class Application extends RouteBuilder {
         String sFtpDir      = System.getenv().getOrDefault("sFTP_DIR", "/upload");
         String sFtpUser     = System.getenv().getOrDefault("sFTP_USER", "osbsap");
         String sFtpPassword = "osbsap$23"; //System.getenv().getOrDefault("sFTP_PWD", "osbsap$23");
-        String sFtpDeleteFile = System.getenv().getOrDefault("sFTP_DELETE_FILE", "false"); // True or false
-        String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/sftp_archive"); // True or false
+        String sFtpDeleteFile = System.getenv().getOrDefault("sFTP_DELETE_FILE", "true"); // True or false
+        String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/upload/sftp_archive"); // True or false
         String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
+        String sftpURI_arch = "sftp:" + sFtpHost + ":"+sFtpPort+ArchiveDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
         //String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW(osbsap$23)&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
 
         String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "https://10.96.16.101/Buyer/fileupload?partition=par1iam");
@@ -50,18 +50,13 @@ public class Application extends RouteBuilder {
             .marshal()
             .zipFile() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
             .log("MUIS : ${file:name} compressed")
-            .to("file:/tmp")
+            .to("file:/tmp") // /tmp in localhost / local container
             
             //.multicast()
             //.parallelProcessing()
             .to("direct:muis_zip_upload_toAriba")
-            //.to("direct:muis_archive_file")
+            .to("direct:muis_archive_file")
         .end();
-
-        /*from("direct:muis_archive_file")
-            .log("Archiving file to : " + ArchiveDir)
-            .to("file:"+ArchiveDir) // Archive file, will get logged on C:\sftp_archive on Windows
-        .end();*/
 
         from("direct:muis_zip_upload_toAriba")
             .process(Application::toMultipart)
@@ -75,6 +70,11 @@ public class Application extends RouteBuilder {
             .toD(ARIBA_UPLOAD_URL)
             .log("MUIS : HTTP response status: ${header.CamelHttpResponseCode}")
             .log("MUIS : HTTP response body:\n${body}")
+        .end();
+
+        from("direct:muis_archive_file")
+            .log("Archiving file to : " + ArchiveDir + " in sftp workspace")
+            .to(sftpURI_arch) // Archive file, in sftp server @todo need an sftp camel connector here as well
         .end();
 
     }
