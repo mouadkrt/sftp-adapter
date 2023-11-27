@@ -36,7 +36,10 @@ public class Application extends RouteBuilder {
         String sFtpPort     = System.getenv().getOrDefault("sFTP_PORT", "22");
         String sFtpDir      = System.getenv().getOrDefault("sFTP_DIR", "/upload");
         String sFtpUser     = System.getenv().getOrDefault("sFTP_USER", "osbsap");
-        String sFtpPassword = "osbsap$23"; //System.getenv().getOrDefault("sFTP_PWD", "osbsap$23");
+
+        String sFtpPassword = "osbsap$23"; //System.getenv().getOrDefault("sFTP_PWD", "osbsap$23"); // TEST
+        //String sFtpPassword = "ariba$$23"; //System.getenv().getOrDefault("sFTP_PWD", "ariba$$23"); // PROD et PRA
+
         String sFtpDeleteFile = System.getenv().getOrDefault("sFTP_DELETE_FILE", "true"); // True or false
         String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/upload/sftp_archive"); // True or false
         String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
@@ -53,9 +56,10 @@ public class Application extends RouteBuilder {
             .log("MUIS : ${file:name} compressed")
             .to("file:/tmp") // /tmp in localhost / local container
             
-            .multicast()
-            .parallelProcessing()
-            .to("direct:muis_archive_file","direct:muis_zip_upload_toAriba")
+            .multicast() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html
+            .stopOnException() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html#_stop_processing_in_case_of_exception : stop processing further routes (if exepection), and let the exception be propagated back
+            //.parallelProcessing() // A multicast option that we disable for now, as it seems to cause trouble (File received partially! @ ARIBA side and @ STP archive side as well)
+            .to("direct:muis_zip_upload_toAriba","direct:muis_archive_file")
         .end();
 
         from("direct:muis_zip_upload_toAriba")

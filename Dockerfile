@@ -9,16 +9,19 @@ RUN keytool -import -noprompt -deststorepass changeit -alias ariba-rec -file /tm
 
 ENTRYPOINT ["java","-jar","app.jar"]
 #ENTRYPOINT ["/bin/sh"]
+
 # mvn spring-boot:run
+
+# Need to build a new image, lo tienes abajo :
 # mvn clean install
 
 # Start Docker deamon
-# docker build -t iam-sftp-adapter:iam_2.0 .
+# docker build -t iam-sftp-adapter:iam_2.1-rec .
 # Tag it and push to quay
-# docker tag iam-sftp-adapter:iam_2.0 quay.io/msentissi/iam-sftp-adapter:iam_2.0
+# docker tag iam-sftp-adapter:iam_2.1-rec quay.io/msentissi/iam-sftp-adapter:iam_2.1-rec
 # docker login registry.redhat.io 
-# docker push quay.io/msentissi/iam-sftp-adapter:iam_2.0
+# docker push quay.io/msentissi/iam-sftp-adapter:iam_2.1-rec
 # OR tag it and push to dockerhub
-# docker push msentissi/iam-sftp-adapter:iam_2.0
+# docker push msentissi/iam-sftp-adapter:iam_2.1-rec
 
-# docker run --rm -ti iam-sftp-adapter:iam_2.0
+# docker run --rm -ti iam-sftp-adapter:iam_2.1-rec
