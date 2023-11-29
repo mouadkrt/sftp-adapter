@@ -6,8 +6,9 @@ COPY Ariba-rec.cer /tmp/Ariba-rec.cer
 RUN touch /tmp/sapqual6_public_key && chmod 775 /tmp/sapqual6_public_key
 USER root
 RUN keytool -import -noprompt -deststorepass changeit -alias ariba-rec -file /tmp/Ariba-rec.cer -keystore /usr/lib/jvm/java-11-openjdk-11.0.10.0.9-0.el7_9.x86_64/lib/security/cacerts
+ENV JAVA_OPTS=""
+ENTRYPOINT java ${JAVA_OPTS} -jar app.jar
 
-ENTRYPOINT ["java","-jar","app.jar"]
 #ENTRYPOINT ["/bin/sh"]
 
 # mvn spring-boot:run
@@ -16,17 +17,19 @@ ENTRYPOINT ["java","-jar","app.jar"]
     # mvn clean install
 
     # Start Docker deamon
-    # docker build -t iam-sftp-adapter:iam_2.1-rec .
+    # docker build -t iam-sftp-adapter:iam_2.2-rec .
     # Tag it and push to quay
-    # docker tag iam-sftp-adapter:iam_2.1-rec quay.io/msentissi/iam-sftp-adapter:iam_2.1-rec
+    # docker tag iam-sftp-adapter:iam_2.2-rec quay.io/msentissi/iam-sftp-adapter:iam_2.2-rec
     # docker login registry.redhat.io 
-    # docker push quay.io/msentissi/iam-sftp-adapter:iam_2.1-rec
+    # docker push quay.io/msentissi/iam-sftp-adapter:iam_2.2-rec
     # OR tag it and push to dockerhub
-    # docker push msentissi/iam-sftp-adapter:iam_2.1-rec
+    # docker push msentissi/iam-sftp-adapter:iam_2.2-rec
 
-    # docker run --rm -ti iam-sftp-adapter:iam_2.1-rec
+    # docker run --rm -ti iam-sftp-adapter:iam_2.2-rec
+    # docker run --env JAVA_OPTS="-Xms256m -Xmx5024m" --network host --rm -ti iam-sftp-adapter:iam_2.2-rec
+    # java.lang.OutOfMemoryError ? Exec into the container to check heap space : jhsdb jmap --heap --pid 1, or : java -XX:+PrintFlagsFinal -version | grep HeapSize
 
-## Need to use in Openshift :
+## Need to use in Openshift ?  :
     # pull the image locally   
     # podman pull quay.io/msentissi/myImage:myTag   
     # oc projet myProject

@@ -42,14 +42,21 @@ public class Application extends RouteBuilder {
 
         String sFtpDeleteFile = System.getenv().getOrDefault("sFTP_DELETE_FILE", "true"); // True or false
         String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/upload/sftp_archive"); // True or false
-        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
+
+        // Fixing file received partially at Ariba side. Possible issue : The sftp camel connecter start processing it before SAP has ended its file creating :
+        //https://stackoverflow.com/questions/13844564/camel-route-picking-up-file-before-ftp-is-complete
+        //  uri="file:pathName?initialDelay=10s&amp;move=ARCHIVE&amp;sortBy=ignoreCase:file:name&amp;readLock=fileLock&amp;readLockCheckInterval=5000&amp;readLockTimeout=10m&amp;filter=#FileFilter
+        // https://camel.apache.org/components/4.0.x/sftp-component.html#_component_options
+        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?readLock=changed&readLockCheckInterval=10000&readLockTimeout=10m&stepwise=false&username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
+
         String sftpURI_arch = "sftp:" + sFtpHost + ":"+sFtpPort+ArchiveDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
         //String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW(osbsap$23)&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
 
         String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "https://10.96.16.101/Buyer/fileupload?partition=par1iam");
+        //String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "http://localhost:3000/upload");
         
         from(sftpURI) // fake sFTP : docker run -p 22:22 -d atmoz/sftp foo:pass:::upload // &resumeDownload=true&streamDownload=false
-            .log("MUIS SFTP adapter version tag iam_2.1-rec")
+            .log("MUIS SFTP adapter version tag iam_2.2-rec")
             .log("MUIS : ${file:name} downloaded from sftp")
             .marshal()
             .zipFile() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
@@ -66,8 +73,8 @@ public class Application extends RouteBuilder {
             .process(Application::toMultipart)
             .log("MUIS : POSTing ${header.CamelFileName} to /upload")
         
-            .setHeader(Exchange.HTTP_METHOD, constant("POST"))
-            .setHeader(Exchange.CONTENT_TYPE, constant("multipart/form-data"))
+             .setHeader(Exchange.HTTP_METHOD, constant("POST"))
+             .setHeader(Exchange.CONTENT_TYPE, constant("multipart/form-data"))
             
             //.to("http://localhost:3000/upload")
             .log("Using ARIBA Upload URL : " + ARIBA_UPLOAD_URL)
