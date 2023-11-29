@@ -49,7 +49,7 @@ public class Application extends RouteBuilder {
         String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "https://10.96.16.101/Buyer/fileupload?partition=par1iam");
         
         from(sftpURI) // fake sFTP : docker run -p 22:22 -d atmoz/sftp foo:pass:::upload // &resumeDownload=true&streamDownload=false
-            .log("MUIS SFTP adapter version tag iam_2.0")
+            .log("MUIS SFTP adapter version tag iam_2.1-rec")
             .log("MUIS : ${file:name} downloaded from sftp")
             .marshal()
             .zipFile() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages

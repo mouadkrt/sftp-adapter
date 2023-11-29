@@ -12,16 +12,29 @@ ENTRYPOINT ["java","-jar","app.jar"]
 
 # mvn spring-boot:run
 
-# Need to build a new image, lo tienes abajo :
-# mvn clean install
+##Need to build a new image, lo tienes abajo :
+    # mvn clean install
 
-# Start Docker deamon
-# docker build -t iam-sftp-adapter:iam_2.1-rec .
-# Tag it and push to quay
-# docker tag iam-sftp-adapter:iam_2.1-rec quay.io/msentissi/iam-sftp-adapter:iam_2.1-rec
-# docker login registry.redhat.io 
-# docker push quay.io/msentissi/iam-sftp-adapter:iam_2.1-rec
-# OR tag it and push to dockerhub
-# docker push msentissi/iam-sftp-adapter:iam_2.1-rec
+    # Start Docker deamon
+    # docker build -t iam-sftp-adapter:iam_2.1-rec .
+    # Tag it and push to quay
+    # docker tag iam-sftp-adapter:iam_2.1-rec quay.io/msentissi/iam-sftp-adapter:iam_2.1-rec
+    # docker login registry.redhat.io 
+    # docker push quay.io/msentissi/iam-sftp-adapter:iam_2.1-rec
+    # OR tag it and push to dockerhub
+    # docker push msentissi/iam-sftp-adapter:iam_2.1-rec
 
-# docker run --rm -ti iam-sftp-adapter:iam_2.1-rec
+    # docker run --rm -ti iam-sftp-adapter:iam_2.1-rec
+
+## Need to use in Openshift :
+    # pull the image locally   
+    # podman pull quay.io/msentissi/myImage:myTag   
+    # oc projet myProject
+# oc get is (locate the route of your ImageStream : <ImageStreamRoute>)
+# tag the concerned image 
+    # podman tag quay.io/msentissi/myImage:myTag <ImageStreamRoute>/myImage:myTag
+# login to openshift local registry
+    # podman login -u kubeadmin -p $(oc whoami -t) --tls-verify=false default-route-openshift-image-registry.apps.okd.iamdg.net.ma
+# push image to openshift Registry
+    # podman push --tls-verify=false default-route-openshift-image-registry.apps.okd.iamdg.net.ma/myImage:myTag  
+# To use the new image, change/update the tag in (triggers > -type : ImageChange > from > name OR spec.template.spec.containers.image) in deployment[config] to the value of dockerImageReference in the ImageStreamTag you just pushed
