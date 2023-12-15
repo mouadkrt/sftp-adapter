@@ -55,6 +55,13 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!--  <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <jvmArguments>-Xmx2560m</jvmArguments>  Set your desired max heap size 2.5 G seems the minimum to successfully handle a 1G file 
+                </configuration>
+            </plugin> -->
         </plugins>
     </build>
 </project>

@@ -2,7 +2,7 @@ package ma.munisys;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.logging.LogLevel;
+
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
@@ -40,16 +41,17 @@ public class Application extends RouteBuilder {
         String sFtpPassword = "osbsap$23"; //System.getenv().getOrDefault("sFTP_PWD", "osbsap$23"); // TEST
         //String sFtpPassword = "ariba$$23"; //System.getenv().getOrDefault("sFTP_PWD", "ariba$$23"); // PROD et PRA
 
-        String sFtpDeleteFile = System.getenv().getOrDefault("sFTP_DELETE_FILE", "true"); // True or false
-        String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/upload/sftp_archive"); // True or false
+        String sFtpDeleteFile = System.getenv().getOrDefault("sFTP_DELETE_FILE", "false"); // True or false
+        String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/upload/sftp_archive");
 
         // Fixing file received partially at Ariba side. Possible issue : The sftp camel connecter start processing it before SAP has ended its file creating :
         //https://stackoverflow.com/questions/13844564/camel-route-picking-up-file-before-ftp-is-complete
         //  uri="file:pathName?initialDelay=10s&amp;move=ARCHIVE&amp;sortBy=ignoreCase:file:name&amp;readLock=fileLock&amp;readLockCheckInterval=5000&amp;readLockTimeout=10m&amp;filter=#FileFilter
         // https://camel.apache.org/components/4.0.x/sftp-component.html#_component_options
-        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?readLock=changed&readLockCheckInterval=10000&readLockTimeout=10m&stepwise=false&username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
+        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?readLock=changed&readLockCheckInterval=10000&readLockTimeout=10m&stepwise=false&username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&move=done&knownHostsFile=/tmp/sapqual6_public_key";
 
-        String sftpURI_arch = "sftp:" + sFtpHost + ":"+sFtpPort+ArchiveDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
+
+        // Depracated now using move=done in sFTP camel URI // String sftpURI_arch = "sftp:" + sFtpHost + ":"+sFtpPort+ArchiveDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
         //String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW(osbsap$23)&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
 
         String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "https://10.96.16.101/Buyer/fileupload?partition=par1iam");
@@ -63,13 +65,14 @@ public class Application extends RouteBuilder {
             .log("MUIS : ${file:name} compressed")
             .to("file:/tmp") // /tmp in localhost / local container
             
-            .multicast() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html
-            .stopOnException() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html#_stop_processing_in_case_of_exception : stop processing further routes (if exepection), and let the exception be propagated back
+            //.multicast() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html
+            //.stopOnException() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html#_stop_processing_in_case_of_exception : stop processing further routes (if exepection), and let the exception be propagated back
             //.parallelProcessing() // A multicast option that we disable for now, as it seems to cause trouble (File received partially! @ ARIBA side and @ STP archive side as well)
-            .to("direct:muis_zip_upload_toAriba","direct:muis_archive_file")
+            .to("direct:muis_upload_toAriba")
+            //.to("direct:muis_archive_file")
         .end();
 
-        from("direct:muis_zip_upload_toAriba")
+        from("direct:muis_upload_toAriba")
             .process(Application::toMultipart)
             .log("MUIS : POSTing ${header.CamelFileName} to /upload")
         
@@ -79,15 +82,22 @@ public class Application extends RouteBuilder {
             //.to("http://localhost:3000/upload")
             .log("Using ARIBA Upload URL : " + ARIBA_UPLOAD_URL)
             .toD(ARIBA_UPLOAD_URL)
-            .log("MUIS : HTTP response status: ${header.CamelHttpResponseCode}")
-            .log("MUIS : HTTP response body:\n${body}")
+            .choice()
+				.when(simple("${header.CamelHttpResponseCode} == '200'"))
+					.log(LoggingLevel.INFO, "File successfully uploaded to Ariba")
+				.otherwise()
+                    .log(LoggingLevel.ERROR, "Failed uploading file to Ariba")
+            .endChoice()
+            // .log("MUIS : HTTP response status: ${header.CamelHttpResponseCode}")
+            // .log("MUIS : HTTP response body:\n${body}")
+            // .setHeader("ARIBA_HTTP_RESPONSE_CODE",  header("CamelHttpResponseCode"))
         .end();
 
-        from("direct:muis_archive_file")
-            .log("Archiving file to : " + ArchiveDir + " in sftp workspace")
-            .to(sftpURI_arch) // Archive file, in sftp server @todo need an sftp camel connector here as well
-        .end();
-
+        // from("direct:muis_archive_file")
+        //     .log("ARIBA_HTTP_RESPONSE_CODE : ${in.headers.ARIBA_HTTP_RESPONSE_CODE}")
+        //     .log("Archiving file to : " + ArchiveDir + " in sftp workspace")
+        //     .to(sftpURI_arch) // Archive file, in sftp server @todo need an sftp camel connector here as well
+        // .end();
     }
 
     public static void  toMultipart(final Exchange exchange) {

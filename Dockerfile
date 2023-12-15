@@ -28,6 +28,8 @@ ENTRYPOINT java ${JAVA_OPTS} -jar app.jar
     # docker run --rm -ti iam-sftp-adapter:iam_2.2-rec
     # docker run --env JAVA_OPTS="-Xms256m -Xmx5024m" --network host --rm -ti iam-sftp-adapter:iam_2.2-rec
     # java.lang.OutOfMemoryError ? Exec into the container to check heap space : jhsdb jmap --heap --pid 1, or : java -XX:+PrintFlagsFinal -version | grep HeapSize
+        # Look for HeapConfiguration section : MaxHeapSize 
+    # Use the following to create big test file on windows : fsutil file createnew test 1073741824  (1048576 = 1MB, 1073741824 = 1GB, 5368709120 =5GB)
 
 ## Need to use in Openshift ?  :
     # pull the image locally   
