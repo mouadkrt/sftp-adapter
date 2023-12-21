@@ -38,16 +38,16 @@ public class Application extends RouteBuilder {
         String sFtpDir      = System.getenv().getOrDefault("sFTP_DIR", "/upload");
         String sFtpUser     = System.getenv().getOrDefault("sFTP_USER", "osbsap");
 
-        String sFtpPassword = "osbsap$23"; //System.getenv().getOrDefault("sFTP_PWD", "osbsap$23"); // TEST
-        //String sFtpPassword = "ariba$$23"; //System.getenv().getOrDefault("sFTP_PWD", "ariba$$23"); // PROD et PRA
-
+        String sFtpPassword = System.getenv().getOrDefault("sFTP_PWD", ""); 
         String sFtpDeleteFile = System.getenv().getOrDefault("sFTP_DELETE_FILE", "false"); // True or false
-        String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/upload/sftp_archive");
+        
+        //String ArchiveDir = System.getenv().getOrDefault("ARCHIVE_DIR", "/upload/sftp_archive");
 
         // Fixing file received partially at Ariba side. Possible issue : The sftp camel connecter start processing it before SAP has ended its file creating :
         //https://stackoverflow.com/questions/13844564/camel-route-picking-up-file-before-ftp-is-complete
         //  uri="file:pathName?initialDelay=10s&amp;move=ARCHIVE&amp;sortBy=ignoreCase:file:name&amp;readLock=fileLock&amp;readLockCheckInterval=5000&amp;readLockTimeout=10m&amp;filter=#FileFilter
         // https://camel.apache.org/components/4.0.x/sftp-component.html#_component_options
+        
         String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?readLock=changed&readLockCheckInterval=10000&readLockTimeout=10m&stepwise=false&username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&move=done&knownHostsFile=/tmp/sapqual6_public_key";
 
 
@@ -58,7 +58,7 @@ public class Application extends RouteBuilder {
         //String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "http://localhost:3000/upload");
         
         from(sftpURI) // fake sFTP : docker run -p 22:22 -d atmoz/sftp foo:pass:::upload // &resumeDownload=true&streamDownload=false
-            .log("MUIS SFTP adapter version tag iam_2.2-rec")
+            .log("MUIS SFTP adapter version tag iam_2.4")
             .log("MUIS : ${file:name} downloaded from sftp")
             .marshal()
             .zipFile() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
