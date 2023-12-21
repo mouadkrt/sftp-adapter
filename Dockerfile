@@ -17,16 +17,17 @@ ENTRYPOINT java ${JAVA_OPTS} -jar app.jar
     # mvn clean install
 
     # Start Docker deamon
-    # docker build -t iam-sftp-adapter:iam_2.2-rec .
+    # docker build -t iam-sftp-adapter:iam_2.4 .
     # Tag it and push to quay
-    # docker tag iam-sftp-adapter:iam_2.2-rec quay.io/msentissi/iam-sftp-adapter:iam_2.2-rec
+    # docker tag iam-sftp-adapter:iam_2.4 quay.io/msentissi/iam-sftp-adapter:iam_2.4
     # docker login registry.redhat.io 
-    # docker push quay.io/msentissi/iam-sftp-adapter:iam_2.2-rec
+    # docker push quay.io/msentissi/iam-sftp-adapter:iam_2.4
     # OR tag it and push to dockerhub
-    # docker push msentissi/iam-sftp-adapter:iam_2.2-rec
+    # docker push msentissi/iam-sftp-adapter:iam_2.4
 
-    # docker run --rm -ti iam-sftp-adapter:iam_2.2-rec
-    # docker run --env JAVA_OPTS="-Xms256m -Xmx5024m" --network host --rm -ti iam-sftp-adapter:iam_2.2-rec
+    # docker run --rm -ti iam-sftp-adapter:iam_2.4
+    # docker run --env JAVA_OPTS="-Xms256m -Xmx5024m" --network host --rm -ti iam-sftp-adapter:iam_2.4
+    # docker run --rm -ti --network="host" -e sFTP_HOST="130.24.80.145" -e sFTP_PWD="123456" iam-sftp-adapter:iam_2.4
     # java.lang.OutOfMemoryError ? Exec into the container to check heap space : jhsdb jmap --heap --pid 1, or : java -XX:+PrintFlagsFinal -version | grep HeapSize
         # Look for HeapConfiguration section : MaxHeapSize 
     # Use the following to create big test file on windows : fsutil file createnew test 1073741824  (1048576 = 1MB, 1073741824 = 1GB, 5368709120 =5GB)
