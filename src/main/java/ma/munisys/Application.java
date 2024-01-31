@@ -48,7 +48,7 @@ public class Application extends RouteBuilder {
         //  uri="file:pathName?initialDelay=10s&amp;move=ARCHIVE&amp;sortBy=ignoreCase:file:name&amp;readLock=fileLock&amp;readLockCheckInterval=5000&amp;readLockTimeout=10m&amp;filter=#FileFilter
         // https://camel.apache.org/components/4.0.x/sftp-component.html#_component_options
         
-        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?readLock=changed&readLockCheckInterval=10000&readLockTimeout=10m&stepwise=false&username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&move=done&knownHostsFile=/tmp/sapqual6_public_key";
+        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?readLock=changed&readLockCheckInterval=10000&readLockTimeout=10m&stepwise=false&username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
 
 
         // Depracated now using move=done in sFTP camel URI // String sftpURI_arch = "sftp:" + sFtpHost + ":"+sFtpPort+ArchiveDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
@@ -58,12 +58,12 @@ public class Application extends RouteBuilder {
         //String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "http://localhost:3000/upload");
         
         from(sftpURI) // fake sFTP : docker run -p 22:22 -d atmoz/sftp foo:pass:::upload // &resumeDownload=true&streamDownload=false
-            .log("MUIS SFTP adapter version tag iam_2.4")
+            .log("MUIS SFTP adapter version tag iam_3.6")
             .log("MUIS : ${file:name} downloaded from sftp")
             .marshal()
-            .zipFile() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
-            .log("MUIS : ${file:name} compressed")
-            .to("file:/tmp") // /tmp in localhost / local container
+            .gzipDeflater() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
+            .log("MUIS : ${file:name} compressed using gzipDeflater() ")
+            .to("file:/tmp?fileName=${file:name}.gz") // /tmp in localhost / local container
             
             //.multicast() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html
             //.stopOnException() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html#_stop_processing_in_case_of_exception : stop processing further routes (if exepection), and let the exception be propagated back
@@ -81,6 +81,7 @@ public class Application extends RouteBuilder {
             
             //.to("http://localhost:3000/upload")
             .log("Using ARIBA Upload URL : " + ARIBA_UPLOAD_URL)
+            // .process(Application::dumpMessageFromExchange)
             .toD(ARIBA_UPLOAD_URL)
             .choice()
 				.when(simple("${header.CamelHttpResponseCode} == '200'"))
@@ -107,14 +108,14 @@ public class Application extends RouteBuilder {
         MultipartEntityBuilder entity = MultipartEntityBuilder.create();
 
         String filename = exchange.getIn().toString();
-        Path path = Paths.get("/tmp/" + filename + ".zip");
+        Path path = Paths.get("/tmp/" + filename + ".gz");
         try {
             // Encode the file as a multipart entity…
             entity.addBinaryBody(
                     "content",
                     Files.readAllBytes(path),
                     ContentType.create("multipart/form-data","UTF-8"),
-                    filename + ".zip"
+                    filename + ".gz"
                 );
             
         } catch (IOException e) {
@@ -129,5 +130,26 @@ public class Application extends RouteBuilder {
         // Set multipart entity as the outgoing message’s body…
         exchange.getOut().setBody(entity.build());
     }
+
+    // private static void dumpMessageFromExchange(Exchange exchange) {
+    //     System.out.println("Dumping Message from Exchange:");
+    //     System.out.println("Body: ");
+    //         List<FormBodyPart> parts = exchange.getIn().getBody();
+
+    //         System.out.println("Dumping MultipartFormEntity content:");
+    //         for (FormBodyPart part : parts) {
+    //             ContentBody body = part.getBody();
+    //             String partName = part.getName();
+    //             String partValue = body instanceof StringBody ? ((StringBody) body).getText() : "[Binary Data]";
+
+    //             System.out.println("Part Name: " + partName + ", Part Value: " + partValue);
+    //         }
+        
+    //     System.out.println("Headers: ");
+    //         Map<String, Object> headers = exchange.getIn().getHeaders();
+    //         for (Map.Entry<String, Object> entry : headers.entrySet()) {
+    //             System.out.println("Header: " + entry.getKey() + ", Value: " + entry.getValue());
+    //         }
+    // }
 
 }
