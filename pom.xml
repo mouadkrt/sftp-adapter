@@ -27,12 +27,12 @@
             <artifactId>camel-ftp</artifactId>
             <version>3.0.1</version>
         </dependency>
-      <!--<dependency>
+      <dependency>
         <groupId>org.apache.camel</groupId>
         <artifactId>camel-zipfile-starter</artifactId>
         <version>3.0.0-RC3</version>
 
-      </dependency>-->
+      </dependency>
 
       <dependency>
         <groupId>org.apache.camel.springboot</groupId>

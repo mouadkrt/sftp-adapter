@@ -9,9 +9,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import javax.net.ssl.X509TrustManager;
+
 import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.http.HttpComponent;
+import org.apache.camel.http.common.HttpOperationFailedException;
+import org.apache.camel.support.jsse.SSLContextParameters;
+import org.apache.camel.support.jsse.TrustManagersParameters;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 
@@ -31,6 +38,32 @@ public class Application extends RouteBuilder {
 
     @Override
     public void configure() {
+
+           // Configure SSLContextParameters to trust all certificates
+			SSLContextParameters sslContextParameters = new SSLContextParameters();
+			
+			TrustManagersParameters trustManagersParameters = new TrustManagersParameters();
+			trustManagersParameters.setTrustManager(new X509TrustManager() {
+				public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+					return null;
+				}
+
+				public void checkClientTrusted(
+					java.security.cert.X509Certificate[] certs, String authType) {
+				}
+
+				public void checkServerTrusted(
+					java.security.cert.X509Certificate[] certs, String authType) {
+				}
+			});
+			
+			sslContextParameters.setTrustManagers(trustManagersParameters);
+
+        // Set up HTTP component with custom SSLContextParameters
+        HttpComponent httpComponent = getContext().getComponent("https", HttpComponent.class);
+        httpComponent.setSslContextParameters(sslContextParameters);
+        httpComponent.setX509HostnameVerifier(NoopHostnameVerifier.INSTANCE);
+
 
         //from("sftp:130.24.80.193:22?username=sftpuser&password=123.pwdMuis&disconnect=false&delete=true");
         String sFtpHost     = System.getenv().getOrDefault("sFTP_HOST", "localhost");
@@ -57,13 +90,21 @@ public class Application extends RouteBuilder {
         String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "https://10.96.16.101/Buyer/fileupload?partition=par1iam");
         //String ARIBA_UPLOAD_URL     = System.getenv().getOrDefault("ARIBA_UPLOAD_URL", "http://localhost:3000/upload");
         
+        onException(HttpOperationFailedException.class)
+            .continued(true) // continue processing the route after catching the exception
+            .log("Exception occurred: ${exception.message}") // log the exception message
+            .process(Application::muisGetHttpException);
+
         from(sftpURI) // fake sFTP : docker run -p 22:22 -d atmoz/sftp foo:pass:::upload // &resumeDownload=true&streamDownload=false
-            .log("MUIS SFTP adapter version tag iam_3.6")
+            .log("MUIS SFTP adapter version tag iam_4.0-zip")
             .log("MUIS : ${file:name} downloaded from sftp")
             .marshal()
-            .gzipDeflater() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
-            .log("MUIS : ${file:name} compressed using gzipDeflater() ")
-            .to("file:/tmp?fileName=${file:name}.gz") // /tmp in localhost / local container
+            //.gzipDeflater() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
+            //.log("MUIS : ${file:name} compressed using gzipDeflater() ")
+            .zipFile()
+            .log("MUIS : ${file:name} compressed using zipFile() ")
+            //.to("file:/tmp?fileName=${file:name}.gz") // /tmp in localhost / local container
+            .to("file:/tmp") // /tmp in localhost / local container
             
             //.multicast() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html
             //.stopOnException() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html#_stop_processing_in_case_of_exception : stop processing further routes (if exepection), and let the exception be propagated back
@@ -83,15 +124,15 @@ public class Application extends RouteBuilder {
             .log("Using ARIBA Upload URL : " + ARIBA_UPLOAD_URL)
             // .process(Application::dumpMessageFromExchange)
             .toD(ARIBA_UPLOAD_URL)
+                .convertBodyTo(String.class)
+                .log(LoggingLevel.INFO, "ARIBA Backend response headers : \n${in.headers} \n")
+                .log(LoggingLevel.INFO, "ARIBA Backend response body : \n${body} \n")
             .choice()
 				.when(simple("${header.CamelHttpResponseCode} == '200'"))
-					.log(LoggingLevel.INFO, "File successfully uploaded to Ariba")
+					.log(LoggingLevel.INFO, "File successfully uploaded to Ariba. header.CamelHttpResponseCode :  ${header.CamelHttpResponseCode}")
 				.otherwise()
                     .log(LoggingLevel.ERROR, "Failed uploading file to Ariba")
             .endChoice()
-            // .log("MUIS : HTTP response status: ${header.CamelHttpResponseCode}")
-            // .log("MUIS : HTTP response body:\n${body}")
-            // .setHeader("ARIBA_HTTP_RESPONSE_CODE",  header("CamelHttpResponseCode"))
         .end();
 
         // from("direct:muis_archive_file")
@@ -108,14 +149,16 @@ public class Application extends RouteBuilder {
         MultipartEntityBuilder entity = MultipartEntityBuilder.create();
 
         String filename = exchange.getIn().toString();
-        Path path = Paths.get("/tmp/" + filename + ".gz");
+        //Path path = Paths.get("/tmp/" + filename + ".gz");
+        Path path = Paths.get("/tmp/" + filename + ".zip");
         try {
             // Encode the file as a multipart entity…
             entity.addBinaryBody(
                     "content",
                     Files.readAllBytes(path),
                     ContentType.create("multipart/form-data","UTF-8"),
-                    filename + ".gz"
+                    //filename + ".gz"
+                    filename + ".zip"
                 );
             
         } catch (IOException e) {
@@ -131,25 +174,15 @@ public class Application extends RouteBuilder {
         exchange.getOut().setBody(entity.build());
     }
 
-    // private static void dumpMessageFromExchange(Exchange exchange) {
-    //     System.out.println("Dumping Message from Exchange:");
-    //     System.out.println("Body: ");
-    //         List<FormBodyPart> parts = exchange.getIn().getBody();
-
-    //         System.out.println("Dumping MultipartFormEntity content:");
-    //         for (FormBodyPart part : parts) {
-    //             ContentBody body = part.getBody();
-    //             String partName = part.getName();
-    //             String partValue = body instanceof StringBody ? ((StringBody) body).getText() : "[Binary Data]";
-
-    //             System.out.println("Part Name: " + partName + ", Part Value: " + partValue);
-    //         }
-        
-    //     System.out.println("Headers: ");
-    //         Map<String, Object> headers = exchange.getIn().getHeaders();
-    //         for (Map.Entry<String, Object> entry : headers.entrySet()) {
-    //             System.out.println("Header: " + entry.getKey() + ", Value: " + entry.getValue());
-    //         }
-    // }
+    public static void muisGetHttpException(Exchange exchange) {
+            // e won't be null because we only catch HttpOperationFailedException;
+            // otherwise, we'd need to check for null.
+            final HttpOperationFailedException e =
+                    exchange.getProperty(Exchange.EXCEPTION_CAUGHT, HttpOperationFailedException.class);
+            // Do something with the responseBody
+            System.out.println(" - muisGetHttpException getResponseBody() : " + e.getResponseBody() + "\n");
+            System.out.println(" - muisGetHttpException getStatusCode() : " + e.getStatusCode() + "\n");
+            System.out.println(" - muisGetHttpException getResponseHeaders() : " + e.getResponseHeaders() + "\n");
+    }
 
 }
