@@ -6,6 +6,7 @@ ariba_fake_https :
 mvn clean install
 set MAVEN_OPTS=-Xmx6144m
 set sFTP_PWD=osbsap$23
+set sFTP_DELETE_FILE=true
 set ARIBA_UPLOAD_URL=http://localhost:3000/upload
 mvn spring-boot:run
 
