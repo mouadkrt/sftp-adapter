@@ -81,7 +81,7 @@ public class Application extends RouteBuilder {
         //  uri="file:pathName?initialDelay=10s&amp;move=ARCHIVE&amp;sortBy=ignoreCase:file:name&amp;readLock=fileLock&amp;readLockCheckInterval=5000&amp;readLockTimeout=10m&amp;filter=#FileFilter
         // https://camel.apache.org/components/4.0.x/sftp-component.html#_component_options
         
-        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?readLock=changed&readLockCheckInterval=10000&readLockTimeout=10m&stepwise=false&username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
+        String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?readLock=changed&readLockCheckInterval=10000&readLockTimeout=10m&stepwise=false&username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&autoCreateKnownHostsFile=true";
 
         // Depracated now using move=done in sFTP camel URI // String sftpURI_arch = "sftp:" + sFtpHost + ":"+sFtpPort+ArchiveDir+"?username="+sFtpUser+"&password=RAW("+sFtpPassword+")&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
         //String sftpURI = "sftp:" + sFtpHost + ":"+sFtpPort+sFtpDir+"?username="+sFtpUser+"&password=RAW(osbsap$23)&disconnect=false&delete="+sFtpDeleteFile+"&knownHostsFile=/tmp/sapqual6_public_key";
@@ -96,20 +96,28 @@ public class Application extends RouteBuilder {
 
         from(sftpURI) // fake sFTP : docker run -p 22:22 -d atmoz/sftp foo:pass:::upload // &resumeDownload=true&streamDownload=false
             .routeId("muis_route1_ftp_listener")
-            .log("MUIS SFTP adapter version tag iam_4.7-zip-rec")
+            .log("MUIS SFTP adapter version tag iam_5.0-zip")
             .log("MUIS : ${file:name} downloaded from sftp")
-            .to("file:/tmp")
+            .to("file:/tmp/ariba")
             .process(Application::checkIfIncrementalLoad);
-            //.gzipDeflater() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
-            //.log("MUIS : ${file:name} compressed using gzipDeflater() ")
 
-        from("file:/tmp/renamed")
+        from("file:/tmp/ariba/renamed") // This route will fire after muisRenameFile() is called by checkIfIncrementalLoad()
             .routeId("muis_route2_zip")
             .marshal()
+            
             .zipFile()
             .log("MUIS : ${file:name} compressed using zipFile() ")
-            //.to("file:/tmp?fileName=${file:name}.gz") // /tmp in localhost / local container
-            .to("file:/tmp") // /tmp in localhost / local container
+            
+            //.gzipDeflater() // Previous SOA PTF used to use XOP/MTOM compression of SOAP messages
+            //.log("MUIS : ${file:name} compressed using gzipDeflater() ")
+            
+            //.zipDeflater()
+            //.log("MUIS : ${file:name} compressed using zipDeflater() ")
+            //.process(ZipFromBinary::zipfile) @TODO
+            //.log("MUIS : ${file:name} compressed using ZipFromBinary omnidata class ")
+            .log("MUIS : to /tmp/ariba/${file:name}")
+            .to("file:/tmp/ariba?fileName=${file:name}") // /tmp in localhost / local container
+            //.to("file:/tmp/ariba") // /tmp in localhost / local container
             
             //.multicast() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html
             //.stopOnException() // https://camel.apache.org/components/4.0.x/eips/multicast-eip.html#_stop_processing_in_case_of_exception : stop processing further routes (if exepection), and let the exception be propagated back
@@ -136,11 +144,11 @@ public class Application extends RouteBuilder {
                 .log(LoggingLevel.INFO, "ARIBA Backend response body : \n${body} \n")
             .choice()
 				.when(simple("${header.CamelHttpResponseCode} == '200'"))
-					.log(LoggingLevel.INFO, "File successfully uploaded to Ariba. header.CamelHttpResponseCode :  ${header.CamelHttpResponseCode}")
+					.log(LoggingLevel.INFO, "File successfully uploaded to Ariba. header.CamelHttpResponseCode :  ${header.CamelHttpResponseCode}\n\n")
 				.otherwise()
-                    .log(LoggingLevel.ERROR, "Failed uploading file to Ariba")
+                    .log(LoggingLevel.ERROR, "Failed uploading file to Ariba\n\n")
             .end()
-            .process(Application::muisDeleteFile)
+            //.process(Application::muisDeleteFile)
         .end();
 
         // from("direct:muis_archive_file")
@@ -161,14 +169,14 @@ public class Application extends RouteBuilder {
             LOGGER.info("Muis checkIfIncrementalLoad() : Setting MUIS_FULLLOAD header to false");
             Application:muisRenameFile(filename, false);
             
-            File file = new File("/tmp/" + filename.substring(3) +".inc");
+            File file = new File("/tmp/ariba/" + filename.substring(3) +".inc"); // This will act as a flag to tell the toMultipart() that it's a INC load
             file.createNewFile();
 
         } else {
             exchange.getIn().setHeader("MUIS_FULLLOAD", "true");
             LOGGER.info("Muis checkIfIncrementalLoad() : Setting MUIS_FULLLOAD header to true");
             Application:muisRenameFile(filename, true);
-            File file = new File("/tmp/" + filename + ".full");
+            File file = new File("/tmp/ariba/" + filename + ".full");
             file.createNewFile();
         }
     }
@@ -185,19 +193,17 @@ public class Application extends RouteBuilder {
         String filename = exchange.getIn().toString();
         LOGGER.info("Muis toMultipart(), filename : " + filename);
 
-        File f = new File("/tmp/" + filename + ".inc");
+        File f = new File("/tmp/ariba/" + filename + ".inc");
         String FullLoad = (f.exists() && !f.isDirectory())? "false" : "true";
-        LOGGER.info("Muis toMultipart(), FullLoad : " + FullLoad);
-
-        //Path path = Paths.get("/tmp/" + filename + ".gz");
-        Path path = Paths.get("/tmp/" + filename + ".zip");
+        
+        Path path = Paths.get("/tmp/ariba/" + filename + ".zip");
+        
         try {
             // Encode the file as a multipart entity…
             entity.addBinaryBody(
                     "content",
                     Files.readAllBytes(path),
                     ContentType.create("multipart/form-data","UTF-8"),
-                    //filename + ".gz"
                     filename + ".zip"
                 );
             
@@ -211,6 +217,10 @@ public class Application extends RouteBuilder {
         entity.addTextBody("fullload", FullLoad);
       
         // Set multipart entity as the outgoing message’s body…
+        LOGGER.info("Muis toMultipart(), content : mimeType='multipart/form-data', charset='UTF-8', path : /tmp/ariba/" + filename + ".zip");
+        LOGGER.info("Muis toMultipart(), sharedsecret : *******");
+        LOGGER.info("Muis toMultipart(), event : Import Batch Data");
+        LOGGER.info("Muis toMultipart(), FullLoad : " + FullLoad);
         exchange.getOut().setBody(entity.build());
     }
 
@@ -228,8 +238,8 @@ public class Application extends RouteBuilder {
     public static String muisRenameFile(String filename, boolean full_load) {
 
         final Logger LOGGER =  LoggerFactory.getLogger(Application.class.getName());
-        String oldFilePath = "/tmp/" + filename;
-        String newFilePath = "/tmp/renamed/" + ( full_load ? filename : filename.substring(3) );
+        String oldFilePath = "/tmp/ariba/" + filename;
+        String newFilePath = "/tmp/ariba/renamed/" + ( full_load ? filename : filename.substring(3) );
         
         // Create File objects for both old and new files
            Path oldFile = Paths.get(oldFilePath); 
@@ -247,7 +257,7 @@ public class Application extends RouteBuilder {
 
     public static void muisDeleteFile(Exchange exchange) {
 
-        Application:emptyFolder(new File("/tmp/"));
+        Application:emptyFolder(new File("/tmp/ariba/"));
     }
 
     public static void emptyFolder(File folder) {
